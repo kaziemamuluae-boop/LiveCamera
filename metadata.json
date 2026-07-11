@@ -1,0 +1,6 @@
+{
+  "name": "Live Camera",
+  "description": "Professional Offline Multi-Camera Live Preview & Recording application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
