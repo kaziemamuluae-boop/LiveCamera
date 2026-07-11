@@ -55,6 +55,13 @@ fun HostScreen(
     var showHostQrDialog by remember { mutableStateOf(false) }
     var showGridDropdown by remember { mutableStateOf(false) }
 
+    // Automatically close QR pairing dialog when a client connects
+    LaunchedEffect(clients.size) {
+        if (clients.isNotEmpty()) {
+            showHostQrDialog = false
+        }
+    }
+
     // Derive grid columns based on layout selection
     val columns = when (selectedGridSize) {
         4 -> 2
@@ -373,21 +380,26 @@ fun CameraPreviewTile(
     onDoubleTap: () -> Unit,
     onLongPress: () -> Unit
 ) {
+    val isRecording = client.status.isRecording
+    val borderColor = if (isRecording) RedPrimary else Color.White.copy(alpha = 0.12f)
+    val borderWidth = if (isRecording) 2.dp else 1.dp
+
     Card(
         modifier = Modifier
-            .aspectRatio(4f / 3f)
+            .aspectRatio(3f / 4f)
             .border(
-                1.dp,
-                if (client.status.isRecording) RedPrimary else Color.White.copy(alpha = 0.05f),
-                RoundedCornerShape(12.dp)
+                borderWidth,
+                borderColor,
+                RoundedCornerShape(16.dp)
             )
             .combinedClickable(
                 onClick = onLongPress, // Clicking opens control
                 onDoubleClick = onDoubleTap,
                 onLongClick = onLongPress
             ),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = GrayCard)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = GrayCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (frame != null) {
@@ -420,10 +432,10 @@ fun CameraPreviewTile(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(60.dp)
                     .background(
                         brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent)
+                            colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)
                         )
                     )
             )
@@ -432,11 +444,16 @@ fun CameraPreviewTile(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Device Name Pill
                 Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -452,27 +469,31 @@ fun CameraPreviewTile(
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 100.dp)
+                        modifier = Modifier.widthIn(max = 85.dp)
                     )
                 }
 
-                // Battery / FPS Status
+                // Battery / FPS Status Pill
                 Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
                         "${client.status.currentResolution} @ ${client.status.currentFps}fps",
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = Color.White.copy(alpha = 0.9f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         Icon(
                             Icons.Filled.BatteryChargingFull,
                             contentDescription = "Battery",
                             tint = if (client.status.batteryLevel < 20) RedPrimary else GreenActive,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(11.dp)
                         )
                         Text(
                             "${client.status.batteryLevel}%",
@@ -489,8 +510,8 @@ fun CameraPreviewTile(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -498,35 +519,57 @@ fun CameraPreviewTile(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Recording Indicator
-                    if (client.status.isRecording) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isRecording) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(RedPrimary.copy(alpha = 0.2f))
+                                .border(1.dp, RedPrimary, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(6.dp)
                                     .background(RedPrimary, CircleShape)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "REC",
                                 color = RedPrimary,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     } else {
-                        Text(
-                            "STANDBY",
-                            color = GreenActive,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(GreenActive.copy(alpha = 0.15f))
+                                .border(1.dp, GreenActive.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(GreenActive, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "STANDBY",
+                                color = GreenActive,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     // Network speed
                     Text(
                         "${String.format("%.1f", client.networkSpeedKbps)} Kbps",
                         color = Color.White,
-                        fontSize = 9.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }

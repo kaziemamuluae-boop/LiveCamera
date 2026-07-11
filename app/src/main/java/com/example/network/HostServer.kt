@@ -165,9 +165,14 @@ class HostServer {
                         }
                         0x01.toByte() -> { // Video Frame (JPEG)
                             if (deviceId != null) {
-                                val bitmap = BitmapFactory.decodeByteArray(payload, 0, payload.size)
-                                if (bitmap != null) {
-                                    _clientFrames[deviceId!!] = bitmap
+                                val decoded = BitmapFactory.decodeByteArray(payload, 0, payload.size)
+                                if (decoded != null) {
+                                    val matrix = android.graphics.Matrix().apply { postRotate(90f) }
+                                    val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                                    if (rotated != decoded) {
+                                        decoded.recycle()
+                                    }
+                                    _clientFrames[deviceId!!] = rotated
                                 }
                             }
                         }
