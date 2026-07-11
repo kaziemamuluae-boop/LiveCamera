@@ -48,11 +48,12 @@ fun HostScreen(
 ) {
     val clients by viewModel.connectedClients.collectAsStateWithLifecycle()
     val clientFrames by viewModel.clientFramesState.collectAsStateWithLifecycle()
+    val hostRecordingDeviceIds by viewModel.hostRecordingDeviceIds.collectAsStateWithLifecycle()
 
     var selectedGridSize by remember { mutableStateOf(4) }
     var selectedClientForControl by remember { mutableStateOf<ConnectedClientInfo?>(null) }
     var fullscreenClient by remember { mutableStateOf<ConnectedClientInfo?>(null) }
-    var isRecordingAll by remember { mutableStateOf(false) }
+    val isRecordingAll = clients.isNotEmpty() && clients.all { hostRecordingDeviceIds.contains(it.deviceId) }
     var showHostQrDialog by remember { mutableStateOf(false) }
     var showGridDropdown by remember { mutableStateOf(false) }
 
@@ -179,11 +180,20 @@ fun HostScreen(
                     // Record All Button
                     Button(
                         onClick = {
-                            isRecordingAll = !isRecordingAll
-                            val cmd = if (isRecordingAll) "START_RECORDING" else "STOP_RECORDING"
-                            viewModel.triggerRemoteCommandToAll(
-                                ControlCommand(command = cmd, intValue = 900)
-                            )
+                            val anyNotRecording = clients.any { !hostRecordingDeviceIds.contains(it.deviceId) }
+                            if (anyNotRecording) {
+                                clients.forEach { client ->
+                                    if (!hostRecordingDeviceIds.contains(client.deviceId)) {
+                                        viewModel.toggleHostRecordingForClient(client.deviceId, client.deviceName, client.status.currentResolution)
+                                    }
+                                }
+                            } else {
+                                clients.forEach { client ->
+                                    if (hostRecordingDeviceIds.contains(client.deviceId)) {
+                                        viewModel.toggleHostRecordingForClient(client.deviceId, client.deviceName, client.status.currentResolution)
+                                    }
+                                }
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isRecordingAll) RedDark else RedPrimary
@@ -273,6 +283,7 @@ fun HostScreen(
                         CameraPreviewTile(
                             client = client,
                             frame = frame,
+                            isRecording = hostRecordingDeviceIds.contains(client.deviceId),
                             onDoubleTap = {
                                 fullscreenClient = client
                             },
@@ -309,7 +320,11 @@ fun HostScreen(
             val clientRef = clients.find { it.deviceId == currentClient.deviceId } ?: currentClient
             ClientControlDrawer(
                 client = clientRef,
+                isRecording = hostRecordingDeviceIds.contains(clientRef.deviceId),
                 onDismiss = { selectedClientForControl = null },
+                onRecordToggle = {
+                    viewModel.toggleHostRecordingForClient(clientRef.deviceId, clientRef.deviceName, clientRef.status.currentResolution)
+                },
                 onTriggerCommand = { cmd ->
                     viewModel.triggerRemoteCommand(clientRef.deviceId, cmd)
                 }
@@ -389,10 +404,10 @@ fun HostScreen(
 fun CameraPreviewTile(
     client: ConnectedClientInfo,
     frame: Bitmap?,
+    isRecording: Boolean,
     onDoubleTap: () -> Unit,
     onLongPress: () -> Unit
 ) {
-    val isRecording = client.status.isRecording
     val borderColor = if (isRecording) RedPrimary else Color.White.copy(alpha = 0.12f)
     val borderWidth = if (isRecording) 2.dp else 1.dp
 
@@ -721,7 +736,9 @@ fun FullscreenPreviewDialog(
 @Composable
 fun ClientControlDrawer(
     client: ConnectedClientInfo,
+    isRecording: Boolean,
     onDismiss: () -> Unit,
+    onRecordToggle: () -> Unit,
     onTriggerCommand: (ControlCommand) -> Unit
 ) {
     AlertDialog(
@@ -748,22 +765,19 @@ fun ClientControlDrawer(
                 ) {
                     // Record Toggle Button
                     Button(
-                        onClick = {
-                            val cmd = if (client.status.isRecording) "STOP_RECORDING" else "START_RECORDING"
-                            onTriggerCommand(ControlCommand(command = cmd, intValue = 900))
-                        },
+                        onClick = onRecordToggle,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (client.status.isRecording) RedDark else RedPrimary
+                            containerColor = if (isRecording) RedDark else RedPrimary
                         ),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f).padding(end = 4.dp).testTag("dialog_record_toggle")
                     ) {
                         Icon(
-                            imageVector = if (client.status.isRecording) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                            imageVector = if (isRecording) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                             contentDescription = "Record"
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (client.status.isRecording) "Stop" else "Record", fontSize = 12.sp)
+                        Text(if (isRecording) "Stop" else "Record", fontSize = 12.sp)
                     }
 
                     // Flip Camera Button

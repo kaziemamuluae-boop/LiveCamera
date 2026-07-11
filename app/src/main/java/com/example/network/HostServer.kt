@@ -49,6 +49,8 @@ class HostServer {
     private val _clientFrames = ConcurrentHashMap<String, Bitmap>()
     val clientFrames: Map<String, Bitmap> get() = _clientFrames
 
+    var onFrameDecoded: ((String, Bitmap) -> Unit)? = null
+
     companion object {
         private const val TAG = "HostServer"
     }
@@ -176,6 +178,7 @@ class HostServer {
                                         decoded.recycle()
                                     }
                                     _clientFrames[deviceId!!] = rotated
+                                    onFrameDecoded?.invoke(deviceId!!, rotated)
                                 }
                             }
                         }

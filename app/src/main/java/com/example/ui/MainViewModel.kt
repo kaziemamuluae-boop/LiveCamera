@@ -97,6 +97,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val deviceId = UUID.randomUUID().toString().substring(0, 8)
     private val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
 
+    private class HostRecordingSession(
+        val encoder: com.example.camera.Mp4VideoEncoder,
+        val startTime: Long,
+        val outputFile: File,
+        val clientDeviceName: String,
+        val resolution: String
+    )
+
+    private val activeHostRecordings = java.util.concurrent.ConcurrentHashMap<String, HostRecordingSession>()
+    private val _hostRecordingDeviceIds = MutableStateFlow<Set<String>>(emptySet())
+    val hostRecordingDeviceIds: StateFlow<Set<String>> = _hostRecordingDeviceIds.asStateFlow()
+
     init {
         _clientIp.value = getLocalIpAddress()
         
@@ -123,6 +135,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startHostMode() {
         hostServer.startServer(viewModelScope)
+        hostServer.onFrameDecoded = { devId, bitmap ->
+            activeHostRecordings[devId]?.let { session ->
+                session.encoder.encodeFrame(bitmap)
+            }
+        }
         discoveryService.startListening(viewModelScope) { clientStatus ->
             // Update UI with newly discovered client or connection states
         }
@@ -371,6 +388,93 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun toggleHostRecordingForClient(deviceId: String, clientDeviceName: String, resolution: String) {
+        if (activeHostRecordings.containsKey(deviceId)) {
+            stopHostRecordingForClient(deviceId)
+        } else {
+            startHostRecordingForClient(deviceId, clientDeviceName, resolution)
+        }
+    }
+
+    private fun startHostRecordingForClient(deviceId: String, clientDeviceName: String, resolution: String) {
+        val context = getApplication<Application>()
+        val appName = try {
+            context.getString(context.applicationInfo.labelRes)
+        } catch (e: Exception) {
+            "Live Camera"
+        }
+        val publicMoviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+        val appDir = File(publicMoviesDir, appName)
+        if (!appDir.exists()) {
+            appDir.mkdirs()
+        }
+        val outputDir = if (appDir.exists()) appDir else (context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir)
+
+        val sanitizedName = clientDeviceName.replace(Regex("[^a-zA-Z0-9_]"), "_")
+        val timestamp = System.currentTimeMillis()
+        val outputFile = File(outputDir, "REC_${sanitizedName}_$timestamp.mp4")
+
+        val currentFrame = clientFramesState.value[deviceId]
+        val width = currentFrame?.width ?: 360
+        val height = currentFrame?.height ?: 640
+
+        val encoder = com.example.camera.Mp4VideoEncoder(
+            outputFile = outputFile,
+            width = width,
+            height = height,
+            frameRate = 15,
+            bitRate = 1500000
+        )
+
+        val session = HostRecordingSession(
+            encoder = encoder,
+            startTime = timestamp,
+            outputFile = outputFile,
+            clientDeviceName = clientDeviceName,
+            resolution = resolution
+        )
+
+        activeHostRecordings[deviceId] = session
+        _hostRecordingDeviceIds.value = activeHostRecordings.keys.toSet()
+        Log.i("MainViewModel", "Started host-side recording for client $clientDeviceName, file: ${outputFile.absolutePath}")
+    }
+
+    private fun stopHostRecordingForClient(deviceId: String) {
+        val session = activeHostRecordings.remove(deviceId) ?: return
+        _hostRecordingDeviceIds.value = activeHostRecordings.keys.toSet()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                session.encoder.release()
+                
+                try {
+                    android.media.MediaScannerConnection.scanFile(
+                        getApplication(),
+                        arrayOf(session.outputFile.absolutePath),
+                        arrayOf("video/mp4"),
+                        null
+                    )
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "MediaScanner scan failed: ${e.message}")
+                }
+
+                val durationSec = (System.currentTimeMillis() - session.startTime) / 1000
+                val entity = RecordingEntity(
+                    fileName = session.outputFile.name,
+                    filePath = session.outputFile.absolutePath,
+                    cameraName = session.clientDeviceName,
+                    durationSeconds = maxOf(1L, durationSec),
+                    fileSize = session.outputFile.length(),
+                    resolution = session.resolution
+                )
+                repository.insertRecording(entity)
+                Log.i("MainViewModel", "Saved host recording log to DB: ${session.outputFile.name}")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error stopping host-side recording: ${e.message}", e)
+            }
+        }
+    }
+
     fun sendLocalFrame(jpegBytes: ByteArray) {
         if (_role.value == AppRole.CLIENT && _isClientConnectedToHost.value) {
             clientConnection.sendFrame(jpegBytes)
@@ -378,6 +482,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun cleanupAll() {
+        // Stop Host recordings
+        activeHostRecordings.keys.forEach { devId ->
+            stopHostRecordingForClient(devId)
+        }
+
         // Stop Host components
         hostServer.stopServer()
         discoveryService.stopListening()
