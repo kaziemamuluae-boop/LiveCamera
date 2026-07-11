@@ -165,7 +165,10 @@ class HostServer {
                         }
                         0x01.toByte() -> { // Video Frame (JPEG)
                             if (deviceId != null) {
-                                val decoded = BitmapFactory.decodeByteArray(payload, 0, payload.size)
+                                val options = BitmapFactory.Options().apply {
+                                    inSampleSize = 2 // Decodes at half width & height, making it 4x faster and using 4x less memory
+                                }
+                                val decoded = BitmapFactory.decodeByteArray(payload, 0, payload.size, options)
                                 if (decoded != null) {
                                     val matrix = android.graphics.Matrix().apply { postRotate(90f) }
                                     val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)

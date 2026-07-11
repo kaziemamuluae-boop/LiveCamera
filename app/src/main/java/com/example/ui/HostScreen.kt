@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,6 +60,17 @@ fun HostScreen(
     LaunchedEffect(clients.size) {
         if (clients.isNotEmpty()) {
             showHostQrDialog = false
+        }
+    }
+
+    // Keep screen on while there are connected clients
+    val view = LocalView.current
+    DisposableEffect(clients.isNotEmpty()) {
+        if (clients.isNotEmpty()) {
+            view.keepScreenOn = true
+        }
+        onDispose {
+            view.keepScreenOn = false
         }
     }
 
@@ -386,7 +398,7 @@ fun CameraPreviewTile(
 
     Card(
         modifier = Modifier
-            .aspectRatio(3f / 4f)
+            .aspectRatio(9f / 16f) // Taller aspect ratio for perfect vertical camera views
             .border(
                 borderWidth,
                 borderColor,
@@ -399,7 +411,7 @@ fun CameraPreviewTile(
             ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = GrayCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (frame != null) {
@@ -419,11 +431,17 @@ fun CameraPreviewTile(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(
                             color = RedPrimary,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 2.5.dp
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Loading stream...", color = TextSecondary, fontSize = 11.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "LOADING STREAM...",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
                     }
                 }
             }
@@ -432,10 +450,10 @@ fun CameraPreviewTile(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
+                    .height(70.dp)
                     .background(
                         brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)
+                            colors = listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent)
                         )
                     )
             )
@@ -448,14 +466,15 @@ fun CameraPreviewTile(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Device Name Pill
+                // Device Name Pill (Glassmorphic)
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -473,11 +492,12 @@ fun CameraPreviewTile(
                     )
                 }
 
-                // Battery / FPS Status Pill
+                // Battery / FPS Status Pill (Glassmorphic)
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -505,13 +525,25 @@ fun CameraPreviewTile(
                 }
             }
 
-            // Bottom controls overlay
+            // Bottom controls overlay gradient
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .height(60.dp)
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                        )
+                    )
+            )
+
+            // Bottom controls overlay elements
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -522,10 +554,10 @@ fun CameraPreviewTile(
                     if (isRecording) {
                         Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(RedPrimary.copy(alpha = 0.2f))
-                                .border(1.dp, RedPrimary, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(RedPrimary.copy(alpha = 0.25f))
+                                .border(1.dp, RedPrimary, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -538,16 +570,17 @@ fun CameraPreviewTile(
                                 "REC",
                                 color = RedPrimary,
                                 fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     } else {
                         Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(GreenActive.copy(alpha = 0.15f))
-                                .border(1.dp, GreenActive.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                                .border(1.dp, GreenActive.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -560,17 +593,22 @@ fun CameraPreviewTile(
                                 "STANDBY",
                                 color = GreenActive,
                                 fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }
 
-                    // Network speed
+                    // Network speed (Glassmorphic Badge)
                     Text(
                         "${String.format("%.1f", client.networkSpeedKbps)} Kbps",
                         color = Color.White,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
                     )
                 }
             }

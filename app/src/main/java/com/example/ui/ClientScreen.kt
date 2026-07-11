@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,6 +60,17 @@ fun ClientScreen(
     var hostIpInput by remember { mutableStateOf("192.168.43.1") } // Common Android hotspot gateway
     var showQrPairingDialog by remember { mutableStateOf(false) }
     var isScanningQr by remember { mutableStateOf(false) }
+
+    // Keep screen on while connected to host or recording locally
+    val view = LocalView.current
+    DisposableEffect(isConnected, isRecordingLocally) {
+        if (isConnected || isRecordingLocally) {
+            view.keepScreenOn = true
+        }
+        onDispose {
+            view.keepScreenOn = false
+        }
+    }
 
     // Re-bind camera whenever settings are updated
     LaunchedEffect(clientFacing, clientResolution, clientFps) {

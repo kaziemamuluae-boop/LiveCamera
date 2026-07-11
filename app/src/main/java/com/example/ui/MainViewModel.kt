@@ -268,7 +268,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startLocalRecording() {
         if (_isRecordingLocally.value) return
-        val outputDir = getApplication<Application>().getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: getApplication<Application>().filesDir
+        val context = getApplication<Application>()
+        val appName = try {
+            context.getString(context.applicationInfo.labelRes)
+        } catch (e: Exception) {
+            "Live Camera"
+        }
+        val publicMoviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+        val appDir = File(publicMoviesDir, appName)
+        val outputDir = if (appDir.exists() || appDir.mkdirs()) {
+            appDir
+        } else {
+            context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+        }
         
         recordingStartTime = System.currentTimeMillis()
         val file = cameraManager.startRecording(outputDir) { event ->

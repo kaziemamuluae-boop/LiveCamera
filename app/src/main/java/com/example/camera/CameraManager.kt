@@ -32,6 +32,7 @@ class CameraManager(private val context: Context) {
     private var activeRecording: Recording? = null
     var currentRecordingFile: File? = null
     private var videoCapture: VideoCapture<Recorder>? = null
+    private var lastFrameTime = 0L
     
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     
@@ -100,9 +101,13 @@ class CameraManager(private val context: Context) {
                     onQrCodeScanned(text)
                 }
             }
-            val jpegBytes = yuvToJpeg(imageProxy)
-            if (jpegBytes != null) {
-                onFrameCaptured(jpegBytes)
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastFrameTime >= 66) { // Max ~15 FPS
+                val jpegBytes = yuvToJpeg(imageProxy, quality = 50)
+                if (jpegBytes != null) {
+                    onFrameCaptured(jpegBytes)
+                    lastFrameTime = currentTime
+                }
             }
             imageProxy.close()
         }
@@ -202,6 +207,16 @@ class CameraManager(private val context: Context) {
                             Log.e(TAG, "Recording finalized with error: ${event.error}")
                         } else {
                             Log.i(TAG, "Recording finalized successfully: ${outputFile.absolutePath}")
+                            try {
+                                android.media.MediaScannerConnection.scanFile(
+                                    context,
+                                    arrayOf(outputFile.absolutePath),
+                                    arrayOf("video/mp4"),
+                                    null
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to scan media file: ${e.message}")
+                            }
                         }
                     }
                 }
