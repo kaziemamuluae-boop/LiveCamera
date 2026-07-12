@@ -95,7 +95,7 @@ fun SplashScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.app_logo_1783824084682),
+                    painter = painterResource(id = R.drawable.icon),
                     contentDescription = "Live Camera Logo",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
