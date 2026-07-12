@@ -16,6 +16,7 @@ import com.example.ui.AppRole
 import com.example.ui.DashboardScreen
 import com.example.ui.HostScreen
 import com.example.ui.ClientScreen
+import com.example.ui.SplashScreen
 import com.example.ui.MainViewModel
 import com.example.ui.theme.MyApplicationTheme
 
@@ -34,8 +35,17 @@ class MainActivity : ComponentActivity() {
 
           NavHost(
             navController = navController,
-            startDestination = "dashboard"
+            startDestination = "splash"
           ) {
+            composable("splash") {
+              SplashScreen(
+                onTimeout = {
+                  navController.navigate("dashboard") {
+                    popUpTo("splash") { inclusive = true }
+                  }
+                }
+              )
+            }
             composable("dashboard") {
               DashboardScreen(
                 viewModel = viewModel,
