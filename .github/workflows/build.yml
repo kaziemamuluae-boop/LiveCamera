@@ -1,0 +1,78 @@
+name: Android Debug Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.3.1
+
+
+      - name: Show Project Structure
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 3 -type f -name "build.gradle*"
+          find . -maxdepth 3 -type f -name "settings.gradle*"
+
+
+      - name: Create Debug Keystore
+        run: |
+          keytool -genkeypair \
+            -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          ls -la debug.keystore
+
+
+      - name: Clean Project
+        run: |
+          gradle clean
+
+
+      - name: Build Debug APK
+        run: |
+          gradle assembleDebug
+
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveCamera-Debug
+          path: |
+            **/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
